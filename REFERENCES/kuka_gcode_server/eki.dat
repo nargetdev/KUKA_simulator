@@ -1,0 +1,25 @@
+&ACCESS RV
+DEFDAT eki_configure PUBLIC
+;() 1234567891
+
+    GLOBAL CHAR gcode_raw_buffer[48]
+
+
+    GLOBAL CHAR g_EX2_telemetry_buffer[128]
+    GLOBAL CHAR g_EX4_telemetry_buffer[128]
+
+
+    GLOBAL STRUC constantStrings_t CHAR MAIN[24], CHAR EX2[24], CHAR EX3[24], CHAR EX4[24]
+
+    ; FLAGS 1-4 reserved for prog
+    GLOBAL CONST INT MAIN_FLAG = 1
+    ; note we do not use EX1 such that the flags line up with the EX* slot
+    GLOBAL CONST INT EX2_FLAG = 2
+    GLOBAL CONST INT EX3_FLAG = 3
+    GLOBAL CONST INT EX4_FLAG = 4
+
+    ; FLAGS 5-8 reserved for EKI rcv alert
+    DECL GLOBAL CONST constantStrings_t EKI_XML = {MAIN[] "1__MAIN__gcodeToMotion", EX2[] "2__EX2__telemetryTCP", EX3[] "3__EX3__gcodeToFile", EX4[] "4__EX4__telemetryUDP" }
+
+
+ENDDAT

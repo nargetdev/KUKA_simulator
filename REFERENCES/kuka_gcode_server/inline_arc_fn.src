@@ -1,0 +1,140 @@
+&ACCESS RV
+&REL 5
+&COMMENT try with dat
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM DISKPATH = KRC:\R1
+DEF inline_arc_fn( )
+;()1234 5678
+END
+
+
+GLOBAL DEF INLINE_ARC_ON(gcode_cmd :IN)
+   DECL GCODE_CMD_T gcode_cmd
+   DECL INT job_number ; this is the emission intensity
+
+   ; Cast emission float to integer job number
+   job_number = gcode_cmd.E
+
+   ; the job numbers are set up such that job 1 is one CMT droplet, job 2 .. two CMT droplets
+   ; therefore the job number is a proxy to the Emission intensity
+
+
+   
+   JOB_WELD_DAT.Weld.Channel1 = job_number ; Update the specific variable
+   ; whenever we start the weld job we start on channel 1
+  ;  JOB_WELD_DAT.Weld.Channel1 = 1
+
+   ; as far as i understand CD_PARAMS is for the torque based collision detection on the axis.
+  ;  SET_CD_PARAMS (2) ; 
+  
+     ; in our case colision detect is happening on $IN[9] - the fronius crashbox
+     ; managed by `sps.sub` ArcTech loop
+
+   TRIGGER WHEN DISTANCE = 1 DELAY = ArcGetDelay(#PreDefinition, JOB_WELD_DAT) DO ArcMainNG(#PreDefinition, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1
+   TRIGGER WHEN PATH = ArcGetPath(#OnTheFlyArcOn, JOB_WELD_DAT) DELAY = ArcGetDelay(#GasPreflow, JOB_WELD_DAT) DO ArcMainNG(#GasPreflow, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1
+   TRIGGER WHEN PATH = ArcGetPath(#OnTheFlyArcOn, JOB_WELD_DAT) DELAY = ArcGetDelay(#ArcPreOn, JOB_WELD_DAT) DO ArcMainNG(#ArcOnMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1 
+   ArcMainNG(#ArcOnBeforeMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+   LIN_safe(gcode_cmd)
+   ArcMainNG(#ArcOnAfterMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+
+;FOLD ARCON JOB_WELD_DAT LIN gotoPt Vel=0.02 m/s CPDAT1 Tool[5]:nx_mtb500_10mm Base[0] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.arctech.arconlin; Kuka.IsGlobalPoint=False; Kuka.PointName=gotoPt; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT1; Kuka.VelocityPath=0.02; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; ArcTech.WdatVarName=JOB_WELD_DAT; ArcTech.Basic=3.6.2.371
+;ENDFOLD
+;$BWDSTART = FALSE
+;LDAT_ACT = LCPDAT1
+;FDAT_ACT = FgotoPt
+;BAS(#CP_PARAMS, 0.02)
+;SET_CD_PARAMS (0)
+;TRIGGER WHEN DISTANCE = 1 DELAY = ArcGetDelay(#PreDefinition, JOB_WELD_DAT) DO ArcMainNG(#PreDefinition, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1
+;TRIGGER WHEN PATH = ArcGetPath(#OnTheFlyArcOn, JOB_WELD_DAT) DELAY = ArcGetDelay(#GasPreflow, JOB_WELD_DAT) DO ArcMainNG(#GasPreflow, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1
+;TRIGGER WHEN PATH = ArcGetPath(#OnTheFlyArcOn, JOB_WELD_DAT) DELAY = ArcGetDelay(#ArcPreOn, JOB_WELD_DAT) DO ArcMainNG(#ArcOnMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1 
+;ArcMainNG(#ArcOnBeforeMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+;LIN g1_pos C_VEL
+;ArcMainNG(#ArcOnAfterMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+;ENDFOLD
+;FOLD INI;%{PE}
+  ;FOLD BASISTECH INI
+;;;    GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM ( )
+;;;    INTERRUPT ON 3 
+;;;    BAS (#INITMOV,0 )
+  ;ENDFOLD (BASISTECH INI)
+  ;FOLD USER INI
+    ;Make your modifications here
+
+  ;ENDFOLD (USER INI)
+;ENDFOLD (INI)
+
+;FOLD SPTP HOME Vel=100 % DEFAULT ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=DEFAULT; Kuka.VelocityPtp=100; Kuka.VelocityFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SPTP
+;ENDFOLD
+;;;SPTP XHOME WITH $VEL_AXIS[1] = SVEL_JOINT(100.0), $TOOL = STOOL2(FHOME), $BASE = SBASE(FHOME.BASE_NO), $IPO_MODE = SIPO_MODE(FHOME.IPO_FRAME), $LOAD = SLOAD(FHOME.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PDEFAULT), $APO = SAPO_PTP(PDEFAULT), $GEAR_JERK[1] = SGEAR_JERK(PDEFAULT), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+
+;FOLD SPTP HOME Vel=100 % DEFAULT ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.basistech.inlineforms.movement.spline; Kuka.IsGlobalPoint=False; Kuka.PointName=HOME; Kuka.BlendingEnabled=False; Kuka.MoveDataPtpName=DEFAULT; Kuka.VelocityPtp=100; Kuka.VelocityFieldEnabled=True; Kuka.CurrentCDSetIndex=0; Kuka.MovementParameterFieldEnabled=True; IlfCommand=SPTP
+;ENDFOLD
+;;;SPTP XHOME WITH $VEL_AXIS[1] = SVEL_JOINT(100.0), $TOOL = STOOL2(FHOME), $BASE = SBASE(FHOME.BASE_NO), $IPO_MODE = SIPO_MODE(FHOME.IPO_FRAME), $LOAD = SLOAD(FHOME.TOOL_NO), $ACC_AXIS[1] = SACC_JOINT(PDEFAULT), $APO = SAPO_PTP(PDEFAULT), $GEAR_JERK[1] = SGEAR_JERK(PDEFAULT), $COLLMON_TOL_PRO[1] = USE_CM_PRO_VALUES(0)
+;ENDFOLD
+
+
+END
+
+GLOBAL DEF INLINE_ARC_SWI(gcode_cmd :IN)
+   DECL GCODE_CMD_T gcode_cmd
+   DECL INT job_number ; this is the emission intensity
+
+   ; Cast emission float to integer job number
+   job_number = gcode_cmd.E
+
+   ; the job numbers are set up such that job 1 is one CMT droplet, job 2 .. two CMT droplets
+   ; therefore the job number is a proxy to the Emission intensity
+
+
+   
+   JOB_WELD_DAT.Weld.Channel1 = job_number ; Update the specific variable
+
+
+;FOLD ARCSWI <JOB_WELD_DAT> LIN gotoPt CPDAT2 Tool[5]:nx_mtb500_10mm Base[0] ColDetect[9] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.arctech.arcswilin; Kuka.IsGlobalPoint=False; Kuka.PointName=gotoPt; Kuka.BlendingEnabled=True; Kuka.MoveDataName=CPDAT2; Kuka.VelocityPath=0.02; Kuka.CurrentCDSetIndex=9; Kuka.MovementParameterFieldEnabled=True; ArcTech.Global.WdatVarName=gJOB_WELD_DAT; ArcTech.IsGlobalWdat=True; ArcTech.Basic=3.6.2.371
+;ENDFOLD
+;$BWDSTART = FALSE
+;LDAT_ACT = LCPDAT2
+;FDAT_ACT = FgotoPt
+;BAS(#CP_PARAMS, gArcBasVelDefinition)
+; SET_CD_PARAMS (9)
+
+
+TRIGGER WHEN DISTANCE = 1 DELAY = 0 DO ArcMainNG(#ArcSwiMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1
+ArcMainNG(#ArcSwiBeforeMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+; LIN g1_pos C_VEL
+LIN_safe(gcode_cmd)
+ArcMainNG(#ArcSwiAfterMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+;ENDFOLD
+END
+
+GLOBAL DEF INLINE_ARC_STOP(gcode_cmd :IN)
+   DECL GCODE_CMD_T gcode_cmd
+
+   
+
+; SET_CD_PARAMS (9)
+TRIGGER WHEN PATH = ArcGetPath(#ArcOffBefore, JOB_WELD_DAT) DELAY = 0 DO ArcMainNG(#ArcOffBeforeOffStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1
+TRIGGER WHEN PATH = ArcGetPath(#ArcOffBefore2, JOB_WELD_DAT) DELAY = 0 DO ArcMainNG(#ArcOffBeforeOffStd2, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1
+TRIGGER WHEN PATH = ArcGetPath(#OnTheFlyArcOff, JOB_WELD_DAT) DELAY = 0 DO ArcMainNG(#ArcOffMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL) PRIO = -1 
+ArcMainNG(#ArcOffBeforeMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+LIN_safe(gcode_cmd)
+ArcMainNG(#ArcOffAfterMoveStd, JOB_WELD_DAT, CP_DAT_VESTIGIAL)
+
+
+;FOLD ARCOFF <G_WDAT> LIN G_PT CPDAT3 Tool[5]:nx_mtb500_10mm Base[0] ColDetect[9] ;%{PE}
+;FOLD Parameters ;%{h}
+;Params IlfProvider=kukaroboter.arctech.arcofflin; Kuka.IsGlobalPoint=False; Kuka.PointName=G_PT; Kuka.BlendingEnabled=False; Kuka.MoveDataName=CPDAT3; Kuka.VelocityPath=0.02; Kuka.CurrentCDSetIndex=9; Kuka.MovementParameterFieldEnabled=True; ArcTech.Global.WdatVarName=gG_WDAT; ArcTech.IsGlobalWdat=True; ArcTech.Basic=3.6.2.371
+;ENDFOLD
+
+;ENDFOLD
+END

@@ -1,0 +1,25 @@
+&ACCESS RVO
+&REL 14
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEF date()
+    ;()7 7           7 8  88
+    DECL CHAR print_buffer[256]
+    DECL STATE_T STATE
+    DECL INT ZERO
+
+    ZERO = 0
+    SWRITE(print_buffer[], STATE, ZERO, "%d-%d-%dT%d:%d:%d.%dZ 'H22'EX2 .. HOW QUICKLY WORLD .. $DATE_HOST'H22''HD''HA''HD''HA'", $DATE_HOST.YEAR, $DATE_HOST.MONTH, $DATE_HOST.DAY, $DATE_HOST.HOUR, $DATE_HOST.MIN, $DATE_HOST.SEC, $DATE_HOST.CSEC)
+    AppendToFile("EX2.log", print_buffer[])
+END
+
+GLOBAL DEFFCT CHAR[256] get_date_string()
+    DECL CHAR print_buffer[256]
+    DECL STATE_T STATE
+    DECL INT ZERO
+
+    ZERO = 0
+    SWRITE(print_buffer[], STATE, ZERO, "%d-%d-%dT%d:%d:%d.%dZ 'H22'ZZZ ..h HOW QUICKLY WORLD .. $DATE_HOST'H22''HD''HA''HD''HA'", $DATE_HOST.YEAR, $DATE_HOST.MONTH, $DATE_HOST.DAY, $DATE_HOST.HOUR, $DATE_HOST.MIN, $DATE_HOST.SEC, $DATE_HOST.CSEC)
+
+    RETURN print_buffer[]
+ENDFCT

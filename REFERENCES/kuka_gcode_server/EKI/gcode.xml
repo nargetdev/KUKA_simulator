@@ -1,0 +1,29 @@
+<ETHERNETKRL>
+    <CONFIGURATION>
+        <EXTERNAL>
+            <TYPE>Client</TYPE>                  <!-- Users connect as clients -->
+        </EXTERNAL>
+        <INTERNAL>
+            <ENVIRONMENT>Program</ENVIRONMENT>   <!-- Server run via robot interpreter -->
+            <BUFFERING Limit="512" />            <!-- Allow buffering of up to 512 messages (system max) -->
+            <ALIVE Set_Flag="1" />               <!-- Use $flag[1] to indicate alive/good connection status -->
+            <IP>172.31.1.147</IP> <!-- IP address for EKI interface on robot controller (KRC) -->
+            <PORT>54601</PORT>                   <!-- Port of EKI interface on robot controller (in [54600, 54615]) -->
+            <PROTOCOL>TCP</PROTOCOL>             <!-- Use UDP protocol -->
+            <MESSAGES Logging="disabled" Display="disabled"/>
+        </INTERNAL>
+    </CONFIGURATION>
+    <RECEIVE>
+        <RAW>
+            <ELEMENT Tag="cmd" Type="BYTE" Size="36" Set_Flag="5"/>
+        </RAW>
+    </RECEIVE>
+    <SEND>
+        <RAW>
+            <!-- NOTE TO SELF - it seems that BOTH SEND AND RECEIVE BLOCKS ARE NECESSARY -->
+            <!-- it also seems as if the Size="..." wants to be the same integer for both Send and Receive -->
+            <!-- OR THE PROG WILL NOT RUN -->
+            <ELEMENT Tag="request" Type="BYTE" Size="36"/>
+        </RAW>
+    </SEND>
+</ETHERNETKRL>

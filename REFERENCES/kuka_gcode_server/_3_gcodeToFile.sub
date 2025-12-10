@@ -1,0 +1,131 @@
+&ACCESS RV
+&COMMENT flag3 _ TCP 54603 server ___ writes gcode sent to TCP server on
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertSubmit
+&REL _1_MAIN_gcodeToMotion
+DEF _3_gcodeToFile( )
+
+    ;() 77788899123905 777
+
+    ; Initialize variables
+    DECL GCODE_CMD_T gcode_cmd
+    DECL CHAR logstring[256]
+    DECL INT ZERO
+
+    AppendToFile("3_gcodeToFile.log", "STATIC")
+
+    AppendToFile("3_gcodeToFile.log", get_date_string())
+
+    eki_init_3()
+
+    ; empty loop .. everything in interrupts
+    ; WAIT FOR TRUE
+    LOOP
+        IF gcode_queue_get(gcode_cmd, EKI_XML.EX3[]) THEN
+            WAIT SEC 0.1
+            log_dry_run(gcode_cmd)
+        ENDIF
+    ENDLOOP
+END
+
+; Non-global EKI interface functions specific to this module
+DEF eki_init_3()
+    DECL EKI_STATUS eki_ret
+
+
+    init_gcode_buffer()
+
+    ; Interrupt on flag[3] down reset
+    global interrupt decl 7 when $FLAG[3]==false do eki_reset_3()
+    interrupt on 7
+    
+    ; once to bootstrap
+    eki_ret = eki_clear(EKI_XML.EX3[])
+    eki_ret = eki_init(EKI_XML.EX3[])
+    eki_ret = eki_open(EKI_XML.EX3[])
+
+END
+
+DEF init_gcode_buffer()
+    DECL INT i
+    FOR i=1 TO 48
+        gcode_raw_buffer[i] = "@"
+    ENDFOR
+END
+
+DEF eki_reset_3()
+    DECL EKI_STATUS eki_ret
+    ; if flag is not set then we need to initialize
+    eki_ret = eki_clear(EKI_XML.EX3[])
+    eki_ret =  eki_init(EKI_XML.EX3[])
+    eki_ret =  eki_open(EKI_XML.EX3[])
+END
+
+; New function to log commands instead of executing them
+DEF log_dry_run(gcode_cmd :IN)
+    DECL GCODE_CMD_T gcode_cmd
+    DECL BOOL move_is_safe
+    DECL CHAR logstring[256]
+    DECL INT ZERO
+    DECL STATE_T STATE
+
+    SWITCH gcode_cmd.cmd_type
+        CASE CMD_MOTION
+            move_is_safe = true
+            IF gcode_cmd.X < 1160 THEN
+                move_is_safe = false
+            ENDIF
+            IF gcode_cmd.Z < 798 THEN
+                move_is_safe = false
+            ENDIF
+            logstring[] = format_gcode_string(gcode_cmd)
+            
+            AppendToFile("e6pos.gcode", logstring[])
+            IF NOT move_is_safe THEN
+                AppendToFile("e6pos.gcode", "; UNSAFE REJECTED'HD''HA'")
+            ENDIF
+        CASE CMD_TOOL_1
+            AppendToFile("e6pos.gcode", "T1 ; Selecting Tool 1'HD''HA'")
+        CASE CMD_TOOL_2
+            AppendToFile("e6pos.gcode", "T2 ; Selecting Tool 2'HD''HA'")
+        CASE CMD_TOOL_3
+            AppendToFile("e6pos.gcode", "T3 ; Selecting Tool 3'HD''HA'")
+        CASE CMD_TOOL_4
+            AppendToFile("e6pos.gcode", "T4 ; Selecting Tool 4'HD''HA'")
+        CASE CMD_TOOL_5
+            AppendToFile("e6pos.gcode", "T5 ; Selecting Tool 5'HD''HA'")
+        CASE CMD_TOOL_6
+            AppendToFile("e6pos.gcode", "T6 ; Selecting Tool 6'HD''HA'")
+        CASE CMD_TOOL_7
+            AppendToFile("e6pos.gcode", "T7 ; Selecting Tool 7'HD''HA'")
+        CASE CMD_TOOL_8
+            AppendToFile("e6pos.gcode", "T8 ; Selecting Tool 8'HD''HA'")
+        CASE CMD_TOOL_9
+            AppendToFile("e6pos.gcode", "T9 ; Selecting Tool 9'HD''HA'")
+        CASE CMD_WCS_1
+            AppendToFile("e6pos.gcode", "G54 ; Selecting Work Coordinate System 1'HD''HA'")
+        CASE CMD_WCS_2
+            AppendToFile("e6pos.gcode", "G55 ; Selecting Work Coordinate System 2'HD''HA'")
+        CASE CMD_WCS_3
+            AppendToFile("e6pos.gcode", "G56 ; Selecting Work Coordinate System 3'HD''HA'")
+        CASE CMD_WCS_4
+            AppendToFile("e6pos.gcode", "G57 ; Selecting Work Coordinate System 4'HD''HA'")
+        CASE CMD_WCS_5
+            AppendToFile("e6pos.gcode", "G58 ; Selecting Work Coordinate System 5'HD''HA'")
+        CASE CMD_WCS_6
+            AppendToFile("e6pos.gcode", "G59 ; Selecting Work Coordinate System 6'HD''HA'")
+        DEFAULT
+            AppendToFile("e6pos.gcode", "; Unknown command type'HD''HA'")
+    ENDSWITCH
+END
+
+DEFFCT CHAR[256] format_gcode_string(gcode_cmd :IN)
+    DECL GCODE_CMD_T gcode_cmd
+    DECL CHAR formatted_str[256]
+    DECL INT ZERO
+    DECL STATE_T STATE
+    
+    ZERO = 0
+    SWRITE(formatted_str[], STATE, ZERO, "G1 X%#.3f Y%#.3f Z%#.3f A%#.3f B%#.3f C%#.3f F%#.3f E%#.3f  ; N%d'HD''HA'", gcode_cmd.X, gcode_cmd.Y, gcode_cmd.Z, gcode_cmd.A, gcode_cmd.B, gcode_cmd.C, gcode_cmd.F, gcode_cmd.E, gcode_cmd.seq)
+    RETURN formatted_str[]
+ENDFCT

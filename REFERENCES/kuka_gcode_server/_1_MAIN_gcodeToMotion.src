@@ -1,0 +1,486 @@
+&ACCESS RVO
+&COMMENT flag1 _ TCP 54601 server
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+DEF _1_MAIN_gcodeToMotion( )
+; 777
+
+   $FLAG[WELD_FLAG_IDX] = FALSE 
+   ;   $FLAG[WELD_FLAG_IDX + 1] = FALSE 
+
+   AppendToFile("1_gcodeToMotion.log", "STATIC")
+
+   motion_queue_init()
+   MAIN_LOOP()
+END
+
+DEF MAIN_LOOP()
+   DECL EKI_STATUS eki_ret
+
+   ; Prepare the MAIN outgoing buffer (16 bytes)
+   DECL GCODE_CMD_T gcode_cmd
+
+   ; temporary
+   DECL BOOL fctResult
+
+   DECL int ZERO
+
+   fctResult = FALSE
+   
+
+   LOOP
+      IF gcode_queue_get(gcode_cmd, EKI_XML.MAIN[]) THEN
+         seq_in_flight = gcode_cmd.seq
+         SWITCH gcode_cmd.cmd_type
+            CASE CMD_MOTION
+               if WELDING THEN
+                  HANDLE_EMISSION_PARAM(gcode_cmd)
+               ELSE 
+                  LIN_safe(gcode_cmd)
+               ENDIF
+            CASE CMD_TOOL_1
+               MSGNOTIFY("Selecting Tool 1")
+               BAS(#TOOL,1)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_2
+               MSGNOTIFY("Selecting Tool 2")
+               BAS(#TOOL,2)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_3
+               MSGNOTIFY("Selecting Tool 3")
+               BAS(#TOOL,3)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_4
+               MSGNOTIFY("Selecting Tool 4")
+               BAS(#TOOL,4)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_5
+               MSGNOTIFY("Selecting Tool 5")
+               BAS(#TOOL,5)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_6
+               MSGNOTIFY("Selecting Tool 6")
+               BAS(#TOOL,6)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_7
+               MSGNOTIFY("Selecting Tool 7")
+               BAS(#TOOL,7)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_8
+               MSGNOTIFY("Selecting Tool 8")
+               BAS(#TOOL,8)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_TOOL_9
+               MSGNOTIFY("Selecting Tool 9")
+               BAS(#TOOL,9)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_WCS_1
+               MSGNOTIFY("Selecting Work Coordinate System 1 (G54)")
+               BAS(#BASE,1)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_WCS_2
+               MSGNOTIFY("Selecting Work Coordinate System 2 (G55)")
+               BAS(#BASE,2)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_WCS_3
+               MSGNOTIFY("Selecting Work Coordinate System 3 (G56)")
+               BAS(#BASE,3)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_WCS_4
+               MSGNOTIFY("Selecting Work Coordinate System 4 (G57)")
+               BAS(#BASE,4)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_WCS_5
+               MSGNOTIFY("Selecting Work Coordinate System 5 (G58)")
+               BAS(#BASE,5)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_WCS_6
+               MSGNOTIFY("Selecting Work Coordinate System 6 (G59)")
+               BAS(#BASE,6)
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_ROBOT_HOME_G28
+               MSGNOTIFY("Moving to Robot Home Position (G28)")
+               HOME()
+               last_rendered_position = $POS_ACT
+            
+            CASE CMD_WORKSPACE_HOME_G30
+               MSGNOTIFY("Moving to Workspace Home Position (G30)")
+               HOME()
+               last_rendered_position = $POS_ACT
+            
+            DEFAULT
+               ; Unknown command type
+               MSGNOTIFY("Unknown command type")
+         ENDSWITCH
+
+         seq_rendered = gcode_cmd.seq
+
+         ; for now our sequence number "location" is updated **upon completion
+         g_seq = gcode_cmd.seq
+      ENDIF
+
+
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ;;; SYNCHRONOUS TELEMETRY FEEDBACK HERE ;;;
+      ; Set the first two 4-byte fields: g_seq and g_queue_size
+
+      ; [0 .. 15]
+      ZERO=0
+      ; Fill the 48-byte feedback buffer: first 8 bytes are g_seq and g_queue_size (both 4-byte INT), rest are -27 (filler)
+      CAST_TO(g_MAIN__feedback_buffer[], ZERO, g_seq, g_queue_size)
+      ; Fill remaining bytes (40 bytes / 10 INTs) with -27
+      CAST_TO(g_MAIN__feedback_buffer[], ZERO, -27, -27, -27, -27, -27, -27, -27, -27, -27, -27)
+
+      ; Only send if connection is alive ($FLAG[MAIN_FLAG])
+      IF $FLAG[MAIN_FLAG] THEN
+         ; Send the prepared buffer (only first 8 bytes contain valid data)
+         eki_ret = EKI_Send(EKI_XML.MAIN[], g_MAIN__feedback_buffer[])
+      ENDIF
+
+      ;;; END SYNCHRONOUS TELEMETRY FEEDBACK ;;;
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+      IF NOT $FLAG[MAIN_FLAG] THEN
+        if WELDING THEN
+          WELD_OFF()
+        ENDIF
+      ENDIF
+   ENDLOOP
+END
+
+
+DEF HANDLE_EMISSION_PARAM(gcode_cmd :in)
+   DECL GCODE_CMD_T gcode_cmd
+   DECL INT CMT_droplets  ; how many droplets we lay down per epoch
+
+   ; Only process extrusion parameter if it's specified in the bitmask
+   IF gcode_cmd.Bitmask B_AND BITMASK_E <> 0 THEN
+      ; implicit conversion float to int
+      CMT_droplets = gcode_cmd.E
+
+      ; only adjust weld if our emission is updated
+      if CMT_droplets <> CMT_droplets_prev then
+         IF CMT_droplets == 0 then
+
+            ; ARC_STOP_FULL()
+         ;   WELD_OFF()
+            INLINE_ARC_STOP(gcode_cmd)
+
+            AppendToFile("weld.log", get_date_string())
+            AppendToFile("weld.log", "INLINE_ARC_STOP(gcode_cmd)")
+            
+         ELSE
+            IF CMT_droplets_prev == 0 then
+
+               ; WELD_ON()
+               INLINE_ARC_ON(gcode_cmd)
+
+               AppendToFile("weld.log", get_date_string())
+               AppendToFile("weld.log", "INLINE_ARC_ON(gcode_cmd)")
+               ; ARC_START_JOB(1) ; always start small 
+            ELSE
+               ; ARC_SWI_JOB(CMT_droplets)
+               ; WELD_JOB_CHANGE()
+
+               INLINE_ARC_SWI(gcode_cmd)
+               AppendToFile("weld.log", get_date_string())
+               AppendToFile("weld.log", "INLINE_ARC_SWI(gcode_cmd)")
+            ENDIF
+         ENDIF
+
+         CMT_droplets_prev = CMT_droplets
+      ELSE
+         LIN_safe(gcode_cmd)
+      ENDIF
+   ELSE
+      ; If no extrusion parameter, just execute motion
+      LIN_safe(gcode_cmd)
+   ENDIF
+
+   ; mischief managed ...
+   ; log_gcode_trace(gcode_cmd)
+END
+
+DEFFCT REAL to_m_per_s(feed_mm_per_s: IN)
+   decl real feed_mm_per_s
+   decl real velocity_m_per_s
+
+   velocity_m_per_s = feed_mm_per_s / 1000.0
+   
+   return velocity_m_per_s
+ENDFCT
+
+DEFFCT BOOL tool_base_whitelist()
+   DECL BOOL tool_ok
+   DECL BOOL base_ok
+   
+   ; Check if current tool and base are in whitelist
+   tool_ok = ALLOWED_TOOLS[$ACT_TOOL]
+   base_ok = ALLOWED_BASES[$ACT_BASE]
+   
+   RETURN (tool_ok AND base_ok)
+ENDFCT
+
+
+GLOBAL DEF LIN_safe(gcode_cmd :IN)
+   DECL GCODE_CMD_T gcode_cmd
+   DECL BOOL move_is_safe
+   DECL E6POS target_pos
+
+   ; for the msgnotify
+   DECL CHAR print_buffer[128]
+   DECL STATE_T STATE
+   DECL INT ZERO
+
+
+   IF NOT tool_base_whitelist() THEN
+      MSGNOTIFY("$ACT_TOOL or $ACT_BASE not in WHITELIST - motion rejected")
+      RETURN
+   ENDIF
+
+
+   ; Start with last rendered position
+   target_pos = last_rendered_position
+
+   ; Apply only the components specified in the bitmask
+   IF ((gcode_cmd.Bitmask B_AND BITMASK_X) <> 0) THEN
+      target_pos.X = gcode_cmd.X
+   ENDIF
+   
+   IF ((gcode_cmd.Bitmask B_AND BITMASK_Y) <> 0) THEN
+      target_pos.Y = gcode_cmd.Y
+   ENDIF
+   
+   IF ((gcode_cmd.Bitmask B_AND BITMASK_Z) <> 0) THEN
+      target_pos.Z = gcode_cmd.Z
+   ENDIF
+   
+   IF ((gcode_cmd.Bitmask B_AND BITMASK_A) <> 0) THEN
+      target_pos.A = gcode_cmd.A
+   ENDIF
+   
+   IF ((gcode_cmd.Bitmask B_AND BITMASK_B) <> 0) THEN
+      target_pos.B = gcode_cmd.B
+   ENDIF
+   
+   IF ((gcode_cmd.Bitmask B_AND BITMASK_C) <> 0) THEN
+      target_pos.C = gcode_cmd.C
+   ENDIF
+
+   ; note that rotation is protected by $SOFT*_END[6] var ... ensure your softstops are correctly set for your MIG
+   ; $SOFTN_END[6] = -180 ; Set negative rotation limit for A6
+   ; $SOFTP_END[6] = 180 ; Set positive rotation limit for A6
+
+   ; Adjust velocity if specified in the bitmask
+   IF ((gcode_cmd.Bitmask B_AND BITMASK_F) <> 0) THEN
+      ; BAS(#CP_PARAMS, to_m_per_s(gcode_cmd.F))
+      $VEL.CP = to_m_per_s(gcode_cmd.F)
+   ENDIF
+
+
+   ; following syntax is wrong .. how to control orientation velocity?? idk.. .
+   ; $VEL.ORI = 10  ; Adjust orientation velocity (in deg/sec)
+
+   IF $VEL.CP > MAXIMUM_CP_SPEED_LIMIT THEN
+      ZERO = 0
+      SWRITE(print_buffer[], STATE, ZERO, "Speed limit exceeded - reducing from %.3f to %.3f m/s", $VEL.CP, MAXIMUM_CP_SPEED_LIMIT)
+      MSGNOTIFY(print_buffer[])
+      $VEL.CP = MAXIMUM_CP_SPEED_LIMIT
+   ENDIF
+
+   IF target_pos.Z < Z_SOFT_LIMIT THEN
+      ZERO = 0
+      SWRITE(print_buffer[], STATE, ZERO, "Z position %.3f below soft limit %.3f", target_pos.Z, Z_SOFT_LIMIT)
+      MSGNOTIFY(print_buffer[])
+      RETURN
+   ENDIF
+
+   ;; make orientation moves slow.
+   $VEL.ORI1 = SPEED_LIMIT_ORI
+	$VEL.ORI2 = SPEED_LIMIT_ORI
+   ; LIN target_pos C_DIS ; prioritize geometric fidelity
+   LIN target_pos C_VEL ; prioritize toolspeed fidelity   
+
+   ; Update the last rendered position
+   last_rendered_position = target_pos
+END
+
+
+
+DEF motion_queue_init()
+   DECL EKI_STATUS eki_ret
+   DECL INT i
+
+   ; initialize the status vars
+   seq_in_flight = -1
+   seq_rendered = -1
+
+   $FLAG[1]=FALSE
+
+
+   ; Initialize all TOOL options to FALSE
+   FOR i=1 TO 16
+      ALLOWED_TOOLS[i] = FALSE
+   ENDFOR
+
+   ; Initialize all BASE options to FALSE
+   FOR i=1 TO 32
+      ALLOWED_BASES[i] = FALSE
+   ENDFOR
+
+   ;; WHITELIST allowed TOOL and BASE
+   ALLOWED_TOOLS[1] = TRUE
+   ALLOWED_TOOLS[2] = TRUE
+   ALLOWED_TOOLS[4] = TRUE 
+   ALLOWED_TOOLS[5] = TRUE
+   
+   ; Whitelisted BASE options
+   ALLOWED_BASES[1] = TRUE
+   ALLOWED_BASES[2] = TRUE
+   ALLOWED_BASES[3] = TRUE
+   ALLOWED_BASES[4] = TRUE
+   ALLOWED_BASES[5] = TRUE
+
+   motion_queue_init_params()
+   initialize_raw_buffer()
+
+
+   ; Create and open EKI interface
+   IF not $flag[1] THEN
+      eki_ret = eki_clear(EKI_XML.MAIN[])
+      eki_ret = eki_init(EKI_XML.MAIN[])
+      eki_ret = eki_open(EKI_XML.MAIN[])
+   ENDIF
+
+
+
+   ; Setup interrupts
+   ; Interrupt 9 - Connection cleanup if external server lost
+   ; note: the kuka is a TCP "client" even if it is a motion "server"
+   ; the interrupt above was not working for me.  instead we just periodically check if a reset is needed
+   global interrupt decl 1 when $timer_flag[1]==true do eki_iface_reset_if_need()
+   interrupt on 1
+
+   wait sec 0.5          ; Wait for next interpolation cycle
+   $timer[1] = -1000        ; Time in [ms] before first interrupt call
+   $timer_stop[1] = false  ; Start timer 1   
+
+END
+
+DEF initialize_raw_buffer()
+   DECL INT i
+   
+   FOR i=1 TO 48
+      g_MAIN__gcode_raw_buffer[i] = "g"
+   ENDFOR
+END
+
+
+DEF motion_queue_init_params()
+
+   BAS (#INITMOV,1 )
+
+   ; Initialize last_rendered_position with the current actual position
+   last_rendered_position = $POS_ACT
+
+   $ADVANCE = 2
+   PTP $AXIS_ACT
+   $APO.CPTP = 100
+   $APO.CDIS = 1.0000
+   $APO.CVEL = 2
+   $ACC.CP = 10 ;mm/sec/sec
+   BAS(#BASE,INITIAL_BASE)
+   $IPO_MODE=#BASE
+   BAS(#TOOL,INITIAL_TOOL)
+
+   LDAT_ACT = {VEL 0.1,ACC 100,APO_DIST 5,APO_FAC 50.0000,AXIS_VEL 1.000,AXIS_ACC 1.000,ORI_TYP #VAR,CIRC_TYP #BASE,JERK_FAC 50.0000,GEAR_JERK 100.000,EXAX_IGN 0,CB {AUX_PT {ORI #CONSIDER,E1 #CONSIDER,E2 #CONSIDER,E3 #CONSIDER,E4 #CONSIDER,E5 #CONSIDER,E6 #CONSIDER},TARGET_PT {ORI #INTERPOLATE,E1 #INTERPOLATE,E2 #INTERPOLATE,E3 #INTERPOLATE,E4 #INTERPOLATE,E5 #INTERPOLATE,E6 #INTERPOLATE}}}
+   FDAT_ACT = {TOOL_NO 5,BASE_NO 4,IPO_FRAME #BASE,POINT2[] " "}
+
+   ; low orientation angular velocity avoid crashes
+
+   $VEL.ORI1 = 1       ; Swivel velocity in deg/s (rotation around Z-axis)
+   $VEL.ORI2 = 1  
+END
+
+
+
+DEF eki_iface_reset_if_need()
+   DECL EKI_STATUS eki_ret
+
+   IF NOT $FLAG[1] THEN
+      AppendToFile("runtime.log", "not $FLAG[1] eki_iface_reset()'HD''HA'")
+
+      eki_ret = eki_clear(EKI_XML.MAIN[])
+      eki_ret = eki_init(EKI_XML.MAIN[])
+      eki_ret = eki_open(EKI_XML.MAIN[])
+   ENDIF
+   $timer[1] = -500        ; Time in [ms] before first interrupt call
+END
+
+
+
+DEF log_gcode_received(received_gcode_cmd :IN)
+   DECL GCODE_CMD_T received_gcode_cmd
+   DECL STATE_T state
+   DECL CHAR logstring[256]
+   DECL INT ZERO ; why is KRL so sad..
+
+   ZERO = 0
+   SWRITE(logstring[], state, ZERO, "{'H22'seq'H22': %d, 'H22'pos'H22': [%f, %f, %f], 'H22'rot'H22': [%f, %f, %f], 'H22'F'H22': %f, 'H22'E'H22': %f, 'H22'Bitmask'H22': %d} 'HD''HA'", received_gcode_cmd.seq, received_gcode_cmd.X, received_gcode_cmd.Y, received_gcode_cmd.Z, received_gcode_cmd.A, received_gcode_cmd.B, received_gcode_cmd.C, received_gcode_cmd.F, received_gcode_cmd.E, received_gcode_cmd.Bitmask)
+   AppendToFile("telem.log", logstring[])
+END
+
+
+
+; manual control of EtherCat bus (extract to external etherCat master)
+DEF WELD_OFF()
+   DECL BOOL fctResult
+   fctResult = FALSE
+
+   if $FLAG[WELD_FLAG_IDX] == FALSE THEN ;; welding is already off
+      RETURN
+   ENDIF
+
+   fctResult = fronius_weld_on(false) ; turn OFF weld
+   WAIT SEC GAS_POSTFLOW_SEC          ; wait 2 secs
+   fctResult = fronius_gas_on(false) ; turn OFF gas
+
+   $FLAG[WELD_FLAG_IDX] = FALSE ; this indicates welding is off
+END
+
+DEF WELD_ON()
+   DECL BOOL fctResult
+   fctResult = FALSE
+
+   fctResult = fronius_gas_on(true) ; turn ON gas
+   ; WAIT SEC GAS_PREFLOW_SEC         ; wait 2 secs
+   fctResult = fronius_select_job(1) ; ALWAYS start with JOB_1?
+   fctResult = fronius_weld_on(true)
+
+   $FLAG[WELD_FLAG_IDX] = TRUE ; this indicates welding is on
+END
+
+DEF WELD_JOB_CHANGE(CMT_droplets :IN)
+   DECL INT CMT_droplets
+   DECL BOOL fctResult
+   fctResult = FALSE
+
+   fctResult = fronius_select_job(CMT_droplets)
+END
+

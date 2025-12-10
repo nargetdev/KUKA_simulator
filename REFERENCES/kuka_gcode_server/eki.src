@@ -1,0 +1,7 @@
+&ACCESS RV
+&REL 1
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+DEF eki()
+;()9
+END

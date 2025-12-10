@@ -1,0 +1,12 @@
+&ACCESS RV
+&REL 1
+&COMMENT 1
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEFFCT BOOL fronius_weld_on(ON :IN)
+;;; ffffff ffffffffff
+    DECL BOOL ON
+    $OUT[1] = ON
+
+    RETURN TRUE
+ENDFCT

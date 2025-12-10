@@ -1,0 +1,74 @@
+&ACCESS RV
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEFFCT BOOL gcode( )
+;11
+ENDFCT
+
+
+GLOBAL DEFFCT BOOL gcode_queue_get(received_gcode_cmd :OUT, EKI_SLOT :IN)
+    DECL CHAR EKI_SLOT[]
+    DECL GCODE_CMD_T received_gcode_cmd
+    DECL INT ZERO
+    DECL EKI_STATUS eki_ret
+
+
+    ; Update buffer to use new structure with initialized sequence numbers
+    ; DECL EKI_STATUS RET
+
+    ;  DECL INT eki_queue_size
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;;  $FLAG[1] is MAIN (TCP server SINKing gcode)               ;;
+    ;;  $FLAG[2] is TELEM SOURCE (UDP client SOURCing telemetry)  ;;
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;  IF NOT ($FLAG[MAIN_FLAG] OR $FLAG[EX1_FLAG] OR $FLAG[EX3_FLAG]) OR NOT $FLAG[2] THEN
+    ;      return false
+    ;  ENDIF
+
+    ; IF NOT ($FLAG[MAIN_FLAG] OR $FLAG[EX1_FLAG] OR $FLAG[EX3_FLAG]) THEN ; only need one.
+    ;  return false
+    ; ENDIF
+
+
+    ; for some reason these need initialized otherwise CAST_FROM will trip..
+    received_gcode_cmd.seq = -1
+    received_gcode_cmd.cmd_type = CMD_MOTION  ; Default to motion command
+    received_gcode_cmd.X = 0.0
+    received_gcode_cmd.Y = 0.0 
+    received_gcode_cmd.Z = 500
+    received_gcode_cmd.A = 0.0
+    received_gcode_cmd.B = 0.0
+    received_gcode_cmd.C = 0.0
+    received_gcode_cmd.F = 0.0
+    received_gcode_cmd.E = 0.0
+    received_gcode_cmd.Bitmask = 0  ; Initialize bitmask to 0 (no fields active)
+
+
+
+    ; check if theres anything in the queue
+    ; check if theres anything in the queue
+    eki_ret=EKI_CHECKBUFFER(EKI_SLOT[], "cmd")
+
+    ; set the global g_queue_size which will be reported to the server by the submit interpreter program
+    g_queue_size=eki_ret.buff
+
+    ; the queue is empty.. no gcode cmd to decode
+    IF g_queue_size == 0 THEN
+        RETURN false
+    ENDIF
+
+    ; get the binary representation
+    eki_ret=EKI_GetString(EKI_SLOT[], "cmd", g_MAIN__gcode_raw_buffer[])
+
+    ; place the fields into our gcode structure
+    ZERO = 0
+    CAST_FROM(g_MAIN__gcode_raw_buffer[], ZERO, received_gcode_cmd.seq, received_gcode_cmd.cmd_type, received_gcode_cmd.X, received_gcode_cmd.Y, received_gcode_cmd.Z, received_gcode_cmd.A, received_gcode_cmd.B, received_gcode_cmd.C, received_gcode_cmd.F, received_gcode_cmd.E)
+    CAST_FROM(g_MAIN__gcode_raw_buffer[], ZERO, received_gcode_cmd.Bitmask)
+
+    ; dont log unless you are debugging
+    ; (writing strings and files is expensive)
+    ; log_gcode_received(received_gcode_cmd)
+
+    RETURN true
+ENDFCT

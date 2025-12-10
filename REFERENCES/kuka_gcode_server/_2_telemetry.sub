@@ -1,0 +1,118 @@
+&ACCESS RV
+&COMMENT flag2 _ UDP client of 172_31_1_252 port 54602 ___ robot telemetry broadcaster
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\ExpertSubmit
+DEF _2_telemetry( )
+    ;() 2 22 77 88 99 11 44
+    AppendToFile("ex2.log", get_date_string())
+    AppendToFile("ex2.log", "EX2_telem.sub")
+
+    init_eki_EX2()
+
+    ; empty loop - everything handled by interrupts
+    LOOP
+        ; Do nothing, just wait 10 seconds each iteration
+        WAIT SEC 10
+    ENDLOOP
+
+END
+
+DEF init_eki_EX2()
+    ; Local implementation of telemetry functions for EX2
+    decl eki_status eki_ret
+    decl int i
+
+    FOR i = 1 to 128
+        g_EX2_telemetry_buffer[i] = "2"
+    ENDFOR
+
+    ; Initialize EKI interface
+    eki_ret = eki_init(EKI_XML.EX2[])
+    eki_ret = eki_open(EKI_XML.EX2[])
+
+    ; Setup timer interrupt for periodic state transmission
+    global interrupt decl 2 when $timer_flag[2]==true do send_telemetry()
+    interrupt on 2
+
+    wait sec 0.012          ; Wait for next interpolation cycle
+    $timer[2] = -200        ; Time in [ms] before first interrupt call
+    $timer_stop[2] = false  ; Start timer
+
+    ; Setup reset interrupt
+    global interrupt decl 6 when $timer_flag[6]==true do reset_connection()
+    interrupt on 6
+    $timer[6] = -200
+    $timer_stop[6] = false
+end
+; Local function to send telemetry data
+def send_telemetry()
+    DECL STATE_T STATE
+    ; Local implementation of telemetry functions for EX2
+    decl eki_status eki_ret
+    decl int i, ZERO
+
+
+    ;;;;;;
+    ;;;
+    ;;; encode $FLAG[...] values
+    DECL INT FLAGS_WORD
+    FLAGS_WORD = 0
+
+    IF $FLAG[1] THEN 
+        FLAGS_WORD = FLAGS_WORD + 1
+    ENDIF
+    IF $FLAG[2] THEN 
+        FLAGS_WORD = FLAGS_WORD + 2
+    ENDIF
+    IF $FLAG[3] THEN 
+        FLAGS_WORD = FLAGS_WORD + 4
+    ENDIF
+    IF $FLAG[4] THEN 
+        FLAGS_WORD = FLAGS_WORD + 8
+    ENDIF
+
+    IF ($ACT_TOOL == -1) OR ($ACT_BASE == -1) THEN
+            ; Check tool and base ranges
+        AppendToFile("ex2.log", "TOOL OR BASE NOT SELECTED")
+    ELSE
+    
+        if $flag[EX2_FLAG] then  ; If connection alive
+            ZERO=0
+
+            ; 0 .. 23
+            CAST_TO(g_EX2_telemetry_buffer[],ZERO, $pos_act_mes.x, $pos_act_mes.y, $pos_act_mes.z, $pos_act_mes.a, $pos_act_mes.b, $pos_act_mes.c)
+            ; 24 .. 47
+            CAST_TO(g_EX2_telemetry_buffer[],ZERO, $axis_act_meas.a1, $axis_act_meas.a2, $axis_act_meas.a3, $axis_act_meas.a4, $axis_act_meas.a5, $axis_act_meas.a6)
+
+            ; 48 .. 63
+            CAST_TO(g_EX2_telemetry_buffer[],ZERO, g_seq, seq_in_flight, g_queue_size, FLAGS_WORD)
+
+            ; 64 .. 95
+            CAST_TO(g_EX2_telemetry_buffer[],ZERO, $VEL_ACT, $ACT_TOOL, $ACT_BASE, 76, 80, 84, 88, 92)
+
+            ; 96 .. 119
+            CAST_TO(g_EX2_telemetry_buffer[],ZERO, 96, 100, 104, 108, 112, 116, 120, 124)
+
+            eki_ret=EKI_Send(EKI_XML.EX2[],g_EX2_telemetry_buffer[])
+        endif
+    ENDIF
+
+
+
+    ; Set timer for next interrupt [ms]
+    $timer[2] = -20  ; ~10 ms for above send + 10 ms interrupt timer -> ~50 Hz state transmission
+end
+
+; Local function to reset connection if needed
+def reset_connection()
+    decl eki_status eki_ret
+    
+    ; if flag is not set then we need to reset connection
+    IF not $flag[EX2_FLAG] THEN
+        eki_ret = eki_clear(EKI_XML.EX2[])
+        eki_ret = eki_init(EKI_XML.EX2[])
+        eki_ret = eki_open(EKI_XML.EX2[])
+    ENDIF
+
+    $timer[6] = -500
+end

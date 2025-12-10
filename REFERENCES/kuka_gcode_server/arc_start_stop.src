@@ -1,0 +1,65 @@
+&ACCESS RVO2
+&REL 2
+&PARAM DISKPATH = KRC:\R1
+DEF arc_start_stop()
+
+END
+
+;() 12 34
+
+DEFFCT E6POS get_z_offset_point(offset_mm :IN)
+   DECL REAL offset_mm
+   DECL E6POS z_off
+   z_off = $pos_act_mes
+   z_off.Z = z_off.Z + offset_mm
+   RETURN z_off
+ENDFCT
+
+GLOBAL DEF ARC_START_JOB(jobNumber :IN)
+   ; jobNumber specifies the welding job to activate
+   DECL INT jobNumber
+
+   WDAT_VAR.Weld.Channel1 = jobNumber ; Update the specific variable
+
+   ArcMainNG(#PreDefinition, WDAT_VAR, WP1)
+   ArcMainNG(#GasPreflow, WDAT_VAR, WP1)
+   ArcMainNG(#ArcOnMoveStd, WDAT_VAR, WP1)     ; Start the arc
+   ArcMainNG(#ArcOnBeforeMoveStd, WDAT_VAR, WP1)
+   LIN get_z_offset_point(1.2) C_VEL
+   ArcMainNG(#ArcOnAfterMoveStd, WDAT_VAR, WP1)
+
+END
+
+GLOBAL DEF ARC_SWI_JOB(jobNumber :IN)
+
+   ; jobNumber specifies the welding job to activate
+   DECL INT jobNumber
+   WDAT_VAR.Weld.Channel1 = jobNumber ; Update the specific variable
+
+   ArcMainNG(#ArcSwiMoveStd, WDAT_VAR, WP1)
+
+   ArcMainNG(#ArcSwiBeforeMoveStd, WDAT_VAR, WP1)
+   ; LIN get_z_offset_point(1.2) C_VEL
+   ArcMainNG(#ArcSwiAfterMoveStd, WDAT_VAR, WP1)
+
+END
+
+
+
+GLOBAL DEF ARC_STOP()
+   ; copied from end of ARC start?
+   ; ArcMainNG(#ArcOnAfterMoveStd, WDAT_VAR, WP1)
+
+   ArcMainNG(#ArcOffMoveStd, WDAT_VAR, WP1)      
+END
+
+
+GLOBAL DEF ARC_STOP_FULL()
+   ArcMainNG(#ArcOffBeforeOffStd, WDAT_VAR, WP1)
+   ArcMainNG(#ArcOffBeforeOffStd2, WDAT_VAR, WP1)
+   ArcMainNG(#ArcOffMoveStd, WDAT_VAR, WP1)
+   ArcMainNG(#ArcOffBeforeMoveStd, WDAT_VAR, WP1)
+   LIN get_z_offset_point(1.2) C_VEL
+   ArcMainNG(#ArcOffAfterMoveStd, WDAT_VAR, WP1)
+END
+

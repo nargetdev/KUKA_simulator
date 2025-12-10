@@ -1,0 +1,12 @@
+&ACCESS RV
+&REL 1
+&COMMENT 9
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEFFCT BOOL fronius_gas_on(ON :IN)
+;ffffffffgggggggg ggggg
+    DECL BOOL ON
+    $OUT[9] = ON
+
+    RETURN TRUE
+ENDFCT

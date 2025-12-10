@@ -1,0 +1,113 @@
+&ACCESS RVO
+&COMMENT UDP client broadcaster
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\submit
+DEF _4_telemetryUDP( )
+    ;() 4444123
+    AppendToFile("ex4.log", get_date_string())
+    AppendToFile("ex4.log", "EX4_telem.sub")
+
+    init_eki_EX4()
+
+    ; empty loop - everything handled by interrupts
+    LOOP
+        ; Do nothing, just wait 10 seconds each iteration
+        WAIT SEC 10
+    ENDLOOP
+
+END
+
+DEF init_eki_EX4()
+    ; Local implementation of telemetry functions for EX4
+    decl eki_status eki_ret
+
+    decl int i
+
+    FOR i = 1 to 128
+        g_EX4_telemetry_buffer[i] = "4"
+    ENDFOR
+
+
+    ; Initialize EKI interface
+    eki_ret = eki_init(EKI_XML.EX4[])
+    eki_ret = eki_open(EKI_XML.EX4[])
+
+    ; Setup timer interrupt for periodic state transmission
+    global interrupt decl 4 when $timer_flag[4]==true do send_telemetry()
+    interrupt on 4
+
+    wait sec 0.014          ; Wait for next interpolation cycle
+    $timer[4] = -400        ; Time in [ms] before first interrupt call
+    $timer_stop[4] = false  ; Start timer
+
+    ; Setup reset interrupt
+    global interrupt decl 8 when $timer_flag[8]==true do reset_connection()
+    interrupt on 8
+    $timer[8] = -400
+    $timer_stop[8] = false
+end
+
+; Local function to send telemetry data
+def send_telemetry()
+    ; Local implementation of telemetry functions for EX4
+    decl eki_status eki_ret
+    decl int i, ZERO
+
+    ; encode $FLAG[...] values
+    DECL INT FLAGS_WORD
+    FLAGS_WORD = 0
+
+    IF $FLAG[1] THEN 
+        FLAGS_WORD = FLAGS_WORD + 1
+    ENDIF
+    IF $FLAG[2] THEN 
+        FLAGS_WORD = FLAGS_WORD + 2
+    ENDIF
+    IF $FLAG[3] THEN 
+        FLAGS_WORD = FLAGS_WORD + 4
+    ENDIF
+    IF $FLAG[4] THEN 
+        FLAGS_WORD = FLAGS_WORD + 8
+    ENDIF
+
+    IF ($ACT_TOOL == -1) OR ($ACT_BASE == -1) THEN
+        ; Check tool and base ranges
+        AppendToFile("ex4.log", "TOOL OR BASE NOT SELECTED")
+    ELSE
+        if $flag[EX4_FLAG] then  ; If connection alive
+            ZERO=0
+
+            ; 0 .. 23
+            CAST_TO(g_EX4_telemetry_buffer[],ZERO, $pos_act_mes.x, $pos_act_mes.y, $pos_act_mes.z, $pos_act_mes.a, $pos_act_mes.b, $pos_act_mes.c)
+            ; 24 .. 47
+            CAST_TO(g_EX4_telemetry_buffer[],ZERO, $axis_act_meas.a1, $axis_act_meas.a2, $axis_act_meas.a3, $axis_act_meas.a4, $axis_act_meas.a5, $axis_act_meas.a6)
+
+            ; 48 .. 63
+            CAST_TO(g_EX4_telemetry_buffer[],ZERO, g_seq, seq_in_flight, g_queue_size, FLAGS_WORD)
+
+            ; 64 .. 95
+            CAST_TO(g_EX4_telemetry_buffer[],ZERO, $VEL_ACT, $ACT_TOOL, $ACT_BASE, 76, 80, 84, 88, 92)
+
+            ; 96 .. 119
+            CAST_TO(g_EX4_telemetry_buffer[],ZERO, 96, 100, 104, 108, 112, 116, 120, 124)
+
+            eki_ret=EKI_Send(EKI_XML.EX4[],g_EX4_telemetry_buffer[])
+        endif
+    ENDIF
+
+    ; Set timer for next interrupt [ms]
+    $timer[4] = -40  ; ~10 ms for above send + 10 ms interrupt timer -> ~50 Hz state transmission
+end
+
+; Local function to reset connection if needed
+def reset_connection()
+    DECL EKI_STATUS eki_ret
+    ; if flag is not set then we need to reset connection
+    IF not $flag[EX4_FLAG] THEN
+        eki_ret = eki_clear(EKI_XML.EX4[])
+        eki_ret = eki_init(EKI_XML.EX4[])
+        eki_ret = eki_open(EKI_XML.EX4[])
+    ENDIF
+
+    $timer[6] = -500
+end

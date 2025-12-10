@@ -1,0 +1,10 @@
+&ACCESS RVP
+&REL 1
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEFFCT BOOL gastest( )
+; te sts if gasflow can be turned off and on
+    $OUT[9] = TRUE
+    WAIT SEC 5
+    $OUT[9] = FALSE
+ENDFCT

@@ -1,0 +1,86 @@
+&ACCESS RV
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+DEF gcode_trace( )
+;()77778
+  clear_log()
+  
+  test_log_four_cmds()
+END
+
+DEF clear_log()
+  DECL INT i
+
+  FOR i=1 TO 2048
+    gcode_executed_log[i].seq = -1
+    gcode_executed_log[i].X = 0
+    gcode_executed_log[i].Y = 0 
+    gcode_executed_log[i].Z = 0
+    gcode_executed_log[i].F = 0
+    gcode_executed_log[i].E = 0
+  ENDFOR
+END
+
+
+GLOBAL DEF log_gcode_trace(gcode_cmd :IN)
+  DECL GCODE_CMD_T gcode_cmd
+  DECL INT idx
+
+  idx = gcode_cmd.seq
+  IF gcode_cmd.seq > 2048 THEN
+    MSGNOTIFY("Warning: Gcode trace buffer overrun")
+    return
+  ENDIF
+
+  ; Store command in log
+  gcode_executed_log[idx].seq = gcode_cmd.seq
+  gcode_executed_log[idx].X = gcode_cmd.X
+  gcode_executed_log[idx].Y = gcode_cmd.Y
+  gcode_executed_log[idx].Z = gcode_cmd.Z
+  gcode_executed_log[idx].A = gcode_cmd.A
+  gcode_executed_log[idx].B = gcode_cmd.B
+  gcode_executed_log[idx].C = gcode_cmd.C
+  gcode_executed_log[idx].F = gcode_cmd.F
+  gcode_executed_log[idx].E = gcode_cmd.E
+END
+
+
+DEF test_log_four_cmds()
+  DECL GCODE_CMD_T test_cmd
+
+  ; Test command 1
+  test_cmd.seq = 1
+  test_cmd.X = 1200
+  test_cmd.Y = 100
+  test_cmd.Z = 800
+  test_cmd.F = 50
+  test_cmd.E = 0
+  log_gcode_trace(test_cmd)
+
+  ; Test command 2 
+  test_cmd.seq = 2
+  test_cmd.X = 1300
+  test_cmd.Y = 200
+  test_cmd.Z = 850
+  test_cmd.F = 50
+  test_cmd.E = 5
+  log_gcode_trace(test_cmd)
+
+  ; Test command 3
+  test_cmd.seq = 3
+  test_cmd.X = 1400
+  test_cmd.Y = 300
+  test_cmd.Z = 900
+  test_cmd.F = 50
+  test_cmd.E = 0
+  log_gcode_trace(test_cmd)
+
+  ; Test command 4
+  test_cmd.seq = 4
+  test_cmd.X = 1500
+  test_cmd.Y = 400
+  test_cmd.Z = 950
+  test_cmd.F = 50
+  test_cmd.E = 5
+  log_gcode_trace(test_cmd)
+END

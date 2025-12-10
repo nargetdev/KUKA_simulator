@@ -1,0 +1,6 @@
+&ACCESS RV
+DEFDAT gcode_trace
+;()888
+    DECL GCODE_CMD_T gcode_executed_log[2048]
+
+ENDDAT

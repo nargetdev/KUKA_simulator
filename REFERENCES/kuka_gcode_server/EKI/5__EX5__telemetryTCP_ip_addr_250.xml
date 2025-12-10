@@ -1,0 +1,30 @@
+<ETHERNETKRL>
+    <CONFIGURATION>
+        <EXTERNAL>
+            <IP>172.31.1.250</IP>
+            <PORT>60005</PORT>
+            <TYPE>Server</TYPE>
+        </EXTERNAL>
+        <INTERNAL>
+            <ENVIRONMENT>Program</ENVIRONMENT>
+            <BUFFERING Mode="FIFO" Limit="10"/>
+            <BUFFSIZE Limit="16384"/>
+            <TIMEOUT Connect="60000"/>
+            <ALIVE Set_Flag="4" Ping="16"/>
+            <IP>172.31.1.147</IP>                  <!-- IP address for EKI interface on robot controller (KRC) -->
+            <PORT>54600</PORT>                   <!-- Port of EKI interface on robot controller (in [54600, 54615]) -->
+            <PROTOCOL>TCP</PROTOCOL>
+            <MESSAGES Logging="error" Display="disabled"/>
+        </INTERNAL>
+    </CONFIGURATION>
+    <RECEIVE>
+        <RAW>
+            <ELEMENT Tag="cmd" Type="BYTE" Size="128" Set_Flag="5"/>
+        </RAW>
+    </RECEIVE>
+    <SEND>
+        <RAW>
+            <ELEMENT Tag="kukasays" Type="BYTE" Size="128" Set_Flag="6"/>
+        </RAW>
+    </SEND>
+</ETHERNETKRL>

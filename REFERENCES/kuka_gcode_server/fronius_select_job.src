@@ -1,0 +1,37 @@
+&ACCESS RVO
+&REL 1
+&COMMENT 65 to 80
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEFFCT BOOL fronius_select_job( weld_job :in )
+;;;ffffffffffffffffffffffffffffffffffff ff1
+    DECL INT weld_job
+    DECL CHAR byteArray[4] ; 4 bytes to store 32-bit integer
+    DECL INT OFFSET
+    DECL INT debug_result
+
+    ; Convert the integer weld_job into a byte array representation
+    OFFSET = 0
+    CAST_TO(byteArray[], OFFSET, weld_job)
+
+    $OUT[65] = (byteArray[1] B_AND 'B00000001') == 'B00000001'
+    $OUT[66] = (byteArray[1] B_AND 'B00000010') == 'B00000010'
+    $OUT[67] = (byteArray[1] B_AND 'B00000100') == 'B00000100'
+    $OUT[68] = (byteArray[1] B_AND 'B00001000') == 'B00001000'
+    $OUT[69] = (byteArray[1] B_AND 'B00010000') == 'B00010000'
+    $OUT[70] = (byteArray[1] B_AND 'B00100000') == 'B00100000'
+    $OUT[71] = (byteArray[1] B_AND 'B01000000') == 'B01000000'
+    $OUT[72] = (byteArray[1] B_AND 'B10000000') == 'B10000000'
+    
+    $OUT[73] = (byteArray[2] B_AND 'B00000001') == 'B00000001'
+    $OUT[74] = (byteArray[2] B_AND 'B00000010') == 'B00000010'
+    $OUT[75] = (byteArray[2] B_AND 'B00000100') == 'B00000100'
+    $OUT[76] = (byteArray[2] B_AND 'B00001000') == 'B00001000'
+    $OUT[77] = (byteArray[2] B_AND 'B00010000') == 'B00010000'
+    $OUT[78] = (byteArray[2] B_AND 'B00100000') == 'B00100000'
+    $OUT[79] = (byteArray[2] B_AND 'B01000000') == 'B01000000'
+    $OUT[80] = (byteArray[2] B_AND 'B10000000') == 'B10000000'
+
+    RETURN TRUE
+
+ENDFCT

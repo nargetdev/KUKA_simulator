@@ -1,0 +1,24 @@
+&ACCESS RV2
+&REL 1
+&PARAM EDITMASK = *
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\FunctionVorgabe
+DEF AppendToFile(FileNameIn[]:IN, MessageIn[]:IN)
+    DECL CHAR MessageIn[], FileNameIn[]
+    DECL INT HANDLE
+    DECL STATE_T STAT
+    DECL MODUS_T MODE
+
+    ; Initializ e Variables
+    MODE = #SYNC 
+    HANDLE = 0 
+
+
+    ; Open the file in write mode (append)
+    CWRITE($FCT_CALL, STAT, MODE, "krl_fopen", FileNameIn[], "a", HANDLE)
+
+    CWRITE($FCT_CALL, STAT, MODE, "krl_fputs", HANDLE, MessageIn[])
+
+    ; Close the file
+    CWRITE($FCT_CALL, STAT, MODE, "krl_fclose", HANDLE)
+END
+
